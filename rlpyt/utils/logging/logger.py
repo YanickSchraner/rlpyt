@@ -16,6 +16,7 @@ import json
 import pickle
 import base64
 import torch
+import wandb
 
 _prefixes = []
 _prefix_str = ''
@@ -48,7 +49,7 @@ _disabled = False
 _tabular_disabled = False
 
 _iteration = 0
-
+_use_wandb = False
 
 def disable():
     global _disabled
@@ -151,6 +152,9 @@ def set_tf_summary_writer(writer_name):
 def get_tf_summary_writer():
     return _tf_summary_writer
 
+def use_wandb():
+    global _use_wandb
+    _use_wandb = True
 
 def get_snapshot_mode():
     return _snapshot_mode
@@ -214,6 +218,8 @@ def record_tabular(key, val, *args, **kwargs):
     _tabular.append((key, str(val)))
     if _tf_summary_writer is not None:
         _tf_summary_writer.add_scalar(key, val, _iteration)
+    if _use_wandb:
+        wandb.log({key: val}, step=_iteration)
 
 
 def push_tabular_prefix(key):

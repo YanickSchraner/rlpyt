@@ -3,6 +3,7 @@ import json
 import os
 import os.path as osp
 from contextlib import contextmanager
+import wandb
 try:
     from torch.utils.tensorboard.writer import SummaryWriter
 except ImportError:
@@ -24,7 +25,7 @@ def get_log_dir(experiment_name, root_log_dir=None, date=True):
 @contextmanager
 def logger_context(
     log_dir, run_ID, name, log_params=None, snapshot_mode="none", override_prefix=False,
-    use_summary_writer=False,
+    use_summary_writer=False, use_wandb=False
 ):
     """Use as context manager around calls to the runner's ``train()`` method.
     Sets up the logger directory and filenames.  Unless override_prefix is
@@ -65,6 +66,7 @@ def logger_context(
     logger.set_snapshot_dir(exp_dir)
     if use_summary_writer:
         logger.set_tf_summary_writer(SummaryWriter(exp_dir))
+
     logger.add_text_output(text_log_file)
     logger.add_tabular_output(tabular_log_file)
     logger.push_prefix(f"{name}_{run_ID} ")
@@ -75,7 +77,9 @@ def logger_context(
     log_params["run_ID"] = run_ID
     with open(params_log_file, "w") as f:
         json.dump(log_params, f, default=lambda o: type(o).__name__)
-
+    if use_wandb:
+        logger.use_wandb()
+        wandb.init(name=name, project='gfootball_p8', config=log_params, monitor_gym=True)
     yield
 
     logger.remove_tabular_output(tabular_log_file)
