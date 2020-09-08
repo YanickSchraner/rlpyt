@@ -192,7 +192,7 @@ class ParallelSamplerBase(BaseSampler):
         )
         self.traj_infos_queue = mp.Queue()
         self.eval_traj_infos_queue = mp.Queue()
-        self.sync = AttrDict(stop_eval=mp.RawValue(ctypes.c_bool, False))
+        self.sync = AttrDict(stop_eval=mp.RawValue(ctypes.c_bool, False), glob_average_return=mp.Value('d', 0.0))
 
     def _assemble_common_kwargs(self, affinity, global_B=1):
         common_kwargs = dict(
@@ -207,6 +207,7 @@ class ParallelSamplerBase(BaseSampler):
             max_decorrelation_steps=self.max_decorrelation_steps,
             torch_threads=affinity.get("worker_torch_threads", 1),
             global_B=global_B,
+            curriculum=self.curriculum
         )
         if self.eval_n_envs > 0:
             common_kwargs.update(dict(

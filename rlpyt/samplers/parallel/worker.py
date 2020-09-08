@@ -1,4 +1,3 @@
-
 import psutil
 import time
 import torch
@@ -23,7 +22,7 @@ def initialize_worker(rank, seed=None, cpu=None, torch_threads=None):
         cpu_affin = "UNAVAILABLE MacOS"
     log_str += f", CPU affinity {cpu_affin}"
     torch_threads = (1 if torch_threads is None and cpu is not None else
-        torch_threads)  # Default to 1 to avoid possible MKL hang.
+                     torch_threads)  # Default to 1 to avoid possible MKL hang.
     if torch_threads is not None:
         torch.set_num_threads(torch_threads)
     log_str += f", Torch threads {torch.get_num_threads()}"
@@ -61,6 +60,7 @@ def sampling_process(common_kwargs, worker_kwargs):
         step_buffer_np=w.get("step_buffer_np", None),
         global_B=c.get("global_B", 1),
         env_ranks=w.get("env_ranks", None),
+        curriculum=c.get("curriculum", None),
     )
     agent_inputs, traj_infos = collector.start_envs(c.max_decorrelation_steps)
     collector.start_agent()

@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from rlpyt.agents.base import AgentInputs
@@ -22,6 +21,7 @@ class BaseCollector:
             step_buffer_np=None,
             global_B=1,
             env_ranks=None,
+            curriculum=None
             ):
         save__init__args(locals())
 
@@ -90,11 +90,11 @@ class DecorrelatingStartCollector(BaseCollector):
         for b, obs in enumerate(observations):
             observation[b] = obs  # numpy array or namedarraytuple
         prev_action = np.stack([env.action_space.null_value()
-            for env in self.envs])
+                                for env in self.envs])
         prev_reward = np.zeros(len(self.envs), dtype="float32")
         if self.rank == 0:
             logger.log("Sampler decorrelating envs, max steps: "
-                f"{max_decorrelation_steps}")
+                       f"{max_decorrelation_steps}")
         if max_decorrelation_steps != 0:
             for b, env in enumerate(self.envs):
                 n_steps = 1 + int(np.random.rand() * max_decorrelation_steps)
