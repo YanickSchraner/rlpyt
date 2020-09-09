@@ -25,7 +25,7 @@ def get_log_dir(experiment_name, root_log_dir=None, date=True):
 @contextmanager
 def logger_context(
     log_dir, run_ID, name, log_params=None, snapshot_mode="none", override_prefix=False,
-    use_summary_writer=False, use_wandb=False, log_gap = 1
+    use_summary_writer=False, use_wandb=False, log_gap = 1, tags=None
 ):
     """Use as context manager around calls to the runner's ``train()`` method.
     Sets up the logger directory and filenames.  Unless override_prefix is
@@ -80,7 +80,7 @@ def logger_context(
         json.dump(log_params, f, default=lambda o: type(o).__name__)
     if use_wandb:
         logger.use_wandb()
-        wandb.init(name=name, project='gfootball_p8', config=log_params, monitor_gym=True, reinit=True)
+        wandb.init(name=name, project='gfootball_p8', config=log_params, monitor_gym=True, reinit=True, tags=tags)
     yield
 
     logger.remove_tabular_output(tabular_log_file)
