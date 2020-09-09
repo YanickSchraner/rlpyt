@@ -111,6 +111,8 @@ class CpuResetCurriculumCollector(CpuResetCollector):
                     if self.sync.glob_average_return.value > env_reward_threshold and (itr - min_itrs) > \
                             self.last_itr_envs_updated[b]:
                         self.last_itr_envs_updated[b] = itr
+                        curriculum_id, *_ = self.curriculum[next_env]
+                        self.sync.curriculum_stage.value = curriculum_id
                         env.change_curriculum_phase(next_env)
                         o = env.reset()
                 if d:
@@ -234,6 +236,52 @@ class CpuEvalCollector(BaseEvalCollector):
         traj_infos = [self.TrajInfoCls() for _ in range(len(self.envs))]
         observations = list()
         for env in self.envs:
+            observations.append(env.reset())
+        observation = buffer_from_example(observations[0], len(self.envs))
+        for b, o in enumerate(observations):
+            observation[b] = o
+        action = buffer_from_example(self.envs[0].action_space.null_value(),
+                                     len(self.envs))
+        reward = np.zeros(len(self.envs), dtype="float32")
+        obs_pyt, act_pyt, rew_pyt = torchify_buffer((observation, action, reward))
+        self.agent.reset()
+        self.agent.eval_mode(itr)
+        for t in range(self.max_T):
+            act_pyt, agent_info = self.agent.step(obs_pyt, act_pyt, rew_pyt)
+            action = numpify_buffer(act_pyt)
+            for b, env in enumerate(self.envs):
+                o, r, d, env_info = env.step(action[b])
+                traj_infos[b].step(observation[b], action[b], r, d,
+                                   agent_info[b], env_info)
+                if getattr(env_info, "traj_done", d):
+                    self.traj_infos_queue.put(traj_infos[b].terminate(o))
+                    traj_infos[b] = self.TrajInfoCls()
+                    o = env.reset()
+                if d:
+                    action[b] = 0  # Next prev_action.
+                    r = 0
+                    self.agent.reset_one(idx=b)
+                observation[b] = o
+                reward[b] = r
+            if self.sync.stop_eval.value:
+                break
+        self.traj_infos_queue.put(None)  # End sentinel.
+
+
+class CpuCurriculumEvalCollector(BaseEvalCollector):
+    """Offline agent evaluation collector which calls ``agent.step()`` in
+    sampling loop.  Immediately resets any environment which finishes a
+    trajectory.  Stops when the max time-steps have been reached, or when
+    signaled by the master process (i.e. if enough trajectories have
+    completed).
+    """
+
+    def collect_evaluation(self, itr):
+        traj_infos = [self.TrajInfoCls() for _ in range(len(self.envs))]
+        observations = list()
+        for env in self.envs:
+            env_id = self.sync.curriculum_stage.value
+            env.change_curriculum_phase(env_id)
             observations.append(env.reset())
         observation = buffer_from_example(observations[0], len(self.envs))
         for b, o in enumerate(observations):
