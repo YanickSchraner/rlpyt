@@ -108,7 +108,7 @@ class CpuResetCurriculumCollector(CpuResetCollector):
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
                     _, env_reward_threshold, min_itrs, next_env = self.curriculum[env.get_env_name()]
-                    if self.sync.glob_average_return.value > env_reward_threshold and (itr - min_itrs) > \
+                    if self.sync.glob_average_return.value > env_reward_threshold or (itr - min_itrs) > \
                             self.last_itr_envs_updated[b]:
                         self.last_itr_envs_updated[b] = itr
                         curriculum_id, *_ = self.curriculum[next_env]
