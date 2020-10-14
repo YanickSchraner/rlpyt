@@ -37,6 +37,7 @@ class PPO(PolicyGradientAlgo):
             ratio_clip=0.1,
             linear_lr_schedule=True,
             normalize_advantage=False,
+            avec=False
             ):
         """Saves input settings."""
         if optim_kwargs is None:
@@ -142,7 +143,11 @@ class PPO(PolicyGradientAlgo):
         surrogate = torch.min(surr_1, surr_2)
         pi_loss = - valid_mean(surrogate, valid)
 
-        value_error = 0.5 * (value - return_) ** 2
+        if self.avec:
+            value_error_estimate = valid_mean(value - return_, valid)
+            value_error = ((value - return_) - value_error_estimate) ** 2
+        else:
+            value_error = 0.5 * (value - return_) ** 2
         value_loss = self.value_loss_coeff * valid_mean(value_error, valid)
 
         entropy = dist.mean_entropy(dist_info, valid)
