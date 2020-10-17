@@ -145,7 +145,7 @@ class PPO(PolicyGradientAlgo):
 
         if self.avec:
             value_error_estimate = valid_mean(value - return_, valid)
-            value_error = ((value - return_) - value_error_estimate) ** 2
+            value_error = 0.5 * ((value - return_) - value_error_estimate) ** 2
         else:
             value_error = 0.5 * (value - return_) ** 2
         value_loss = self.value_loss_coeff * valid_mean(value_error, valid)
