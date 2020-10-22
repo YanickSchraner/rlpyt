@@ -129,12 +129,7 @@ class DQN(RlAlgorithm):
         using less memory (usual observations are 4 most recent frames, with only newest
         frame distince from previous observation).
         """
-        example_to_buffer = SamplesToBuffer(
-            observation=examples["observation"],
-            action=examples["action"],
-            reward=examples["reward"],
-            done=examples["done"],
-        )
+        example_to_buffer = self.examples_to_buffer(examples)
         replay_kwargs = dict(
             example=example_to_buffer,
             size=self.replay_size,
@@ -186,13 +181,21 @@ class DQN(RlAlgorithm):
             if self.prioritized_replay:
                 self.replay_buffer.update_batch_priorities(td_abs_errors)
             opt_info.loss.append(loss.item())
-            opt_info.gradNorm.append(grad_norm)
+            opt_info.gradNorm.append(torch.tensor(grad_norm).item())  # backwards compatible
             opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
             self.update_counter += 1
             if self.update_counter % self.target_update_interval == 0:
                 self.agent.update_target(self.target_update_tau)
         self.update_itr_hyperparams(itr)
         return opt_info
+
+    def examples_to_buffer(self, examples):
+        return SamplesToBuffer(
+            observation=examples["observation"],
+            action=examples["action"],
+            reward=examples["reward"],
+            done=examples["done"],
+        )
 
     def samples_to_buffer(self, samples):
         """Defines how to add data from sampler into the replay buffer. Called
