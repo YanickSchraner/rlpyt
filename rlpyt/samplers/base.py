@@ -39,6 +39,7 @@ class BaseSampler:
             eval_max_steps=None,  # int if using evaluation.
             eval_max_trajectories=None,  # Optional earlier cutoff.
             curriculum=None,
+            prioritized_level_replay=False,
             ):
         eval_max_steps = None if eval_max_steps is None else int(eval_max_steps)
         eval_max_trajectories = (None if eval_max_trajectories is None else
@@ -46,6 +47,7 @@ class BaseSampler:
         save__init__args(locals())
         self.batch_spec = BatchSpec(batch_T, batch_B)
         self.mid_batch_reset = CollectorCls.mid_batch_reset
+
 
     def initialize(self, *args, **kwargs):
         """Should instantiate all components, including setup of parallel

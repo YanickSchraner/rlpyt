@@ -7,6 +7,7 @@ import torch
 import multiprocessing
 
 from rlpyt.runners.base import BaseRunner
+from rlpyt.utils.level_replay import LevelSampler
 from rlpyt.utils.logging import logger
 from rlpyt.utils.prog_bar import ProgBarCounter
 from rlpyt.utils.quick_args import save__init__args
@@ -40,12 +41,18 @@ class MinibatchRlBase(BaseRunner):
             seed=None,
             affinity=None,
             log_interval_steps=1e5,
+            prioritized_level_replay=False
     ):
         n_steps = int(n_steps)
         log_interval_steps = int(log_interval_steps)
         affinity = dict() if affinity is None else affinity
         save__init__args(locals())
         self.min_itr_learn = getattr(self.algo, 'min_itr_learn', 0)
+
+        if prioritized_level_replay:
+            seeds = np.array(range(200000), np.int32)
+            self.level_replay = LevelSampler(seeds=seeds, score_transform='rank', replay_schedule='fixed',
+                                             staleness_coef=0.1, temperature=0.1)
 
     def startup(self):
         """
@@ -315,6 +322,12 @@ class MinibatchRlEval(MinibatchRlBase):
                 self.agent.train_mode(itr)
                 opt_info = self.algo.optimize_agent(itr, samples)
                 self.store_diagnostics(itr, traj_infos, opt_info)
+                if self.prioritized_level_replay:
+                    for traj_info, value_error in zip(traj_infos, opt_info.valueLoss):
+                        self.level_replay.update_seed_score(traj_info.seed, value_error)
+                    seeds = [self.level_replay.sample() for _ in range(self.sampler.n_worker)]
+                    self.sampler.set_env_seeds(seeds)
+
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)

@@ -465,8 +465,6 @@ def record_tabular_misc_stat(key, values, placement='back'):
         if _tf_summary_writer is not None:
             prefix += "/"  # Group stats together in Tensorboard.
     if len(values) > 0:
-        if key is 'gradNorm':
-            values = [val.item() for val in values]
         record_tabular(prefix + "Average" + suffix, np.average(values))
         record_tabular(prefix + "Std" + suffix, np.std(values))
         record_tabular(prefix + "Median" + suffix, np.median(values))

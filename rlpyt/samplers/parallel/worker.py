@@ -61,6 +61,7 @@ def sampling_process(common_kwargs, worker_kwargs):
         global_B=c.get("global_B", 1),
         env_ranks=w.get("env_ranks", None),
         curriculum=c.get("curriculum", None),
+        prioritized_level_replay=c.get("prioritized_level_replay", False)
     )
     agent_inputs, traj_infos = collector.start_envs(c.max_decorrelation_steps)
     collector.start_agent()

@@ -46,6 +46,11 @@ class CpuResetCollector(DecorrelatingStartCollector):
                     completed_infos.append(traj_infos[b].terminate(o))
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
+
+                    # Prioritized level replay related
+                    if self.prioritized_level_replay:
+                        seed = self.sync.seeds[b]
+                        env.set_env_seed(seed)
                 if d:
                     self.agent.reset_one(idx=b)
                 observation[b] = o
@@ -107,14 +112,30 @@ class CpuResetCurriculumCollector(CpuResetCollector):
                     completed_infos.append(traj_infos[b].terminate(o))
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
-                    _, env_reward_threshold, min_itrs, next_env = self.curriculum[env.get_env_name()]
-                    if self.sync.glob_average_return.value > env_reward_threshold or (itr - min_itrs) > \
-                            self.last_itr_envs_updated[b]:
-                        self.last_itr_envs_updated[b] = itr
-                        curriculum_id, *_ = self.curriculum[next_env]
-                        self.sync.curriculum_stage.value = curriculum_id
-                        env.change_curriculum_phase(next_env)
-                        o = env.reset()
+
+                    # Prioritized level replay related
+                    if self.prioritized_level_replay:
+                        seed = self.sync.seeds[b]
+                        env.set_env_seed(seed)
+
+                    # Curriculum related:
+                    if 'smooth' in self.curriculum and self.curriculum['smooth']:
+                        env_reward_threshold = self.curriculum['threshold']
+                        if self.sync.glob_average_return.value > env_reward_threshold and (itr - 2) >= \
+                                self.last_itr_envs_updated[b]:
+                            self.last_itr_envs_updated[b] = itr
+                            env.change_curriculum_phase_smooth()
+                            self.sync.difficulty.value = env.difficulty
+                            o = env.reset()
+                    else:
+                        _, env_reward_threshold, min_itrs, next_env = self.curriculum[env.get_env_name()]
+                        if self.sync.glob_average_return.value > env_reward_threshold or (itr - min_itrs) > \
+                                self.last_itr_envs_updated[b]:
+                            self.last_itr_envs_updated[b] = itr
+                            curriculum_id, *_ = self.curriculum[next_env]
+                            self.sync.curriculum_stage.value = curriculum_id
+                            env.change_curriculum_phase(next_env)
+                            o = env.reset()
                 if d:
                     self.agent.reset_one(idx=b)
                 observation[b] = o
@@ -280,8 +301,11 @@ class CpuCurriculumEvalCollector(BaseEvalCollector):
         traj_infos = [self.TrajInfoCls() for _ in range(len(self.envs))]
         observations = list()
         for env in self.envs:
-            env_id = self.sync.curriculum_stage.value
-            env.change_curriculum_phase(env_id)
+            if self.sync.difficulty.value > 0:
+                env.change_curriculum_phase_smooth(self.sync.difficulty.value)
+            else:
+                env_id = self.sync.curriculum_stage.value
+                env.change_curriculum_phase(env_id)
             observations.append(env.reset())
         observation = buffer_from_example(observations[0], len(self.envs))
         for b, o in enumerate(observations):

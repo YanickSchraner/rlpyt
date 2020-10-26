@@ -21,8 +21,9 @@ class BaseCollector:
             step_buffer_np=None,
             global_B=1,
             env_ranks=None,
-            curriculum=None
-            ):
+            curriculum=None,
+            prioritized_level_replay=False
+    ):
         save__init__args(locals())
 
     def start_envs(self):
@@ -63,7 +64,7 @@ class BaseEvalCollector:
             agent=None,
             sync=None,
             step_buffer_np=None,
-            ):
+    ):
         save__init__args(locals())
 
     def collect_evaluation(self):

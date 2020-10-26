@@ -1,6 +1,7 @@
 import multiprocessing as mp
 import ctypes
 import time
+from typing import List
 
 from rlpyt.samplers.base import BaseSampler
 from rlpyt.samplers.buffer import build_samples_buffer
@@ -96,6 +97,9 @@ class ParallelSamplerBase(BaseSampler):
         self.ctrl.barrier_out.wait()  # Wait for workers ready (e.g. decorrelate).
         return examples  # e.g. In case useful to build replay buffer.
 
+    def set_env_seeds(self, seeds: List[int]):
+        self.sync.seeds[:] = seeds
+
     def obtain_samples(self, itr):
         """Signal worker processes to collect samples, and wait until they
         finish. Workers will write directly to the pre-allocated samples
@@ -103,6 +107,7 @@ class ParallelSamplerBase(BaseSampler):
         completed trajectories are retrieved from workers through a parallel
         queue object and are also returned.
         """
+
         self.ctrl.itr.value = itr
         self.ctrl.barrier_in.wait()
         # Workers step environments and sample actions here.
@@ -192,7 +197,8 @@ class ParallelSamplerBase(BaseSampler):
         self.traj_infos_queue = mp.Queue()
         self.eval_traj_infos_queue = mp.Queue()
         self.sync = AttrDict(stop_eval=mp.RawValue(ctypes.c_bool, False), glob_average_return=mp.Value('d', 0.0),
-                             curriculum_stage=mp.Value('i', 0))
+                             curriculum_stage=mp.Value('i', 0), difficulty=mp.Value('d', 0.0),
+                             seeds=mp.Array('i', n_worker))
 
     def _assemble_common_kwargs(self, affinity, global_B=1):
         common_kwargs = dict(
@@ -207,7 +213,8 @@ class ParallelSamplerBase(BaseSampler):
             max_decorrelation_steps=self.max_decorrelation_steps,
             torch_threads=affinity.get("worker_torch_threads", 1),
             global_B=global_B,
-            curriculum=self.curriculum
+            curriculum=self.curriculum,
+            prioritized_level_replay=self.prioritized_level_replay
         )
         if self.eval_n_envs > 0:
             common_kwargs.update(dict(

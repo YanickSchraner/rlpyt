@@ -37,7 +37,8 @@ class PPO(PolicyGradientAlgo):
             ratio_clip=0.1,
             linear_lr_schedule=True,
             normalize_advantage=False,
-            avec=False
+            avec=False,
+            prioritized_level_replay=False
             ):
         """Saves input settings."""
         if optim_kwargs is None:
@@ -97,8 +98,12 @@ class PPO(PolicyGradientAlgo):
                 self.optimizer.zero_grad()
                 rnn_state = init_rnn_state[B_idxs] if recurrent else None
                 # NOTE: if not recurrent, will lose leading T dim, should be OK.
-                loss, entropy, perplexity = self.loss(
-                    *loss_inputs[T_idxs, B_idxs], rnn_state)
+                if self.prioritized_level_replay:
+                    loss, entropy, perplexity, value_error = self.loss(
+                        *loss_inputs[T_idxs, B_idxs], rnn_state)
+                else:
+                    loss, entropy, perplexity = self.loss(
+                        *loss_inputs[T_idxs, B_idxs], rnn_state)
                 loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(
                     self.agent.parameters(), self.clip_grad_norm)
@@ -108,6 +113,8 @@ class PPO(PolicyGradientAlgo):
                 opt_info.gradNorm.append(torch.tensor(grad_norm).item())  # backwards compatible
                 opt_info.entropy.append(entropy.item())
                 opt_info.perplexity.append(perplexity.item())
+                if self.prioritized_level_replay:
+                    opt_info.valueLoss.append(value_error.item())
                 self.update_counter += 1
         if self.linear_lr_schedule:
             self.lr_scheduler.step()
@@ -156,4 +163,6 @@ class PPO(PolicyGradientAlgo):
         loss = pi_loss + value_loss + entropy_loss
 
         perplexity = dist.mean_perplexity(dist_info, valid)
+        if self.prioritized_level_replay:
+            return loss, entropy, perplexity, valid_mean(value_error, valid)
         return loss, entropy, perplexity
