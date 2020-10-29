@@ -117,6 +117,7 @@ class CpuResetCurriculumCollector(CpuResetCollector):
                     if self.prioritized_level_replay:
                         seed = self.sync.seeds[b]
                         env.set_env_seed(seed)
+                        o = env.reset()
 
                     # Curriculum related:
                     if 'smooth' in self.curriculum and self.curriculum['smooth']:
